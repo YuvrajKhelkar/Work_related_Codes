@@ -1,0 +1,49 @@
+select p.policyNo from data2_target_prod.csdm.policy p
+join (select * from data2_target_prod.cdm.identity where type = 'BANK' and nullif(trim(idNo),'')  is not null) i
+on p.policyNo = i.policyNo
+where agentCode in (
+select agentCode from data2_target_prod.cdm.agent where partnerCode in ('5630382_17','5630382_24','5630382_44','4570276','5630382','5630382_43')) and p.policyNo like 'U%' and p.status='20'
+ 
+bank_event: {axis: '5630382_17','5630382_24','5630382_44','4570276','5630382','5630382_43'}
+
+
+ 1. add the axis bank business insurance id's: take the id's from below and pass it on from widget
+
+select p.policyNo from data2_target_prod.csdm.policy p
+
+join (select * from data2_target_prod.cdm.identity where type = 'BANK' and nullif(trim(idNo),'')  is not null) i
+
+on p.policyNo = i.policyNo
+
+where agentCode in (
+
+select agentCode from data2_target_prod.cdm.agent where partnerCode in ('5630382_17','5630382_24','5630382_44','4570276','5630382','5630382_43')) and p.policyNo like 'U%' and p.status='20'
+ 
+ 
+2. query only for above policies which are coming from the queries
+ 
+3. compare previous version with current data for those 3 columns
+
+a. describe history data2_target_prod.cdm.policyfund limit 20
+
+b. ex: select * from data2_target_prod.cdm.policyfund version as of 1045 -- for previous version
+
+c. send only these policies to kafka one time
+ 
+topic: integration1.event.policy.master
+ 
+brokers: 172.23.96.233:9092
+ 
+event = {
+            "name": "axisFundChanges",
+            "_service": "event.policy.master",
+            "attributes": {
+                "policies": [list of all policies],
+                "timestamp": str(datetime.now())
+            },
+            "_type":"EVENT",
+            "_operation": "axisFundChanges",
+            "source": "dataLake",
+            "type": "policy.master",
+        }
+ 
