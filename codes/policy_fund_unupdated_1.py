@@ -1,3 +1,6 @@
+{'axis': ('5630382_17','5630382_24','5630382_44','4570276','5630382','5630382_43')}
+
+
 from src.utils.kafkaPublishUtils import publishMessage
 from pyspark.sql.functions import col,lit,to_json, struct, col, date_format
 import ast,hashlib
