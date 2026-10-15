@@ -1,6 +1,31 @@
 {'axis': ('5630382_17','5630382_24','5630382_44','4570276','5630382','5630382_43')}
 
 
+
+
+delta.enableChangeDataFeed: "true"
+delta.autoOptimize.autoCompact: "true"
+delta.enableDeletionVectors: "true"
+delta.enableRowTracking: "true"
+delta.checkpointPolicy: "v2"
+delta.autoOptimize.optimizeWrite: "true"
+delta.rowTracking.materializedRowCommitVersionColumnName: "_row-commit-version-col-4eb591bc-a905-4f3d-a95e-8f21bee7ad8e"
+delta.rowTracking.materializedRowIdColumnName: "_row-id-col-a8d416b3-dc4b-44ab-880f-dc556101ad40"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from src.utils.kafkaPublishUtils import publishMessage
 from pyspark.sql.functions import col,lit,to_json, struct, col, date_format
 import ast,hashlib
