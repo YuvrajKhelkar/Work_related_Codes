@@ -1,0 +1,161 @@
+
+import os
+import zipfile
+import tempfile
+from datetime import datetime
+
+
+class HdfcIngestion:
+
+    SOURCE_PATH = (
+        "/Volumes/data2_raw_dev/data2_files/data2_volume/download/HDFC/DocumentTransfer"
+    )
+
+    ZIP_PATH = (
+        "/Volumes/data2_raw_dev/data2_files/data2_volume/download/HDFC/DocumentTransfer/zipped"
+    )
+
+    TARGET_PATH = (
+        "/Volumes/data2_raw_dev/data2_files/data2_volume/download/HDFC/HDFCServer"
+    )
+
+    def get_source_folders(self, year=None, month=None):
+        """
+        Returns all folders for the given year and month.
+        """
+
+        today = datetime.now()
+
+        year = year or today.year
+        month = month or today.month
+
+        source_path = f"{self.SOURCE_PATH}/{year}/{month}"
+
+        folders = [
+            item.path.rstrip("/")
+            for item in dbutils.fs.ls(source_path)
+            if item.isDir()
+        ]
+
+        return folders
+
+    def zip_folder(self, folder_path: str):
+        """
+        Creates a ZIP file from a source folder.
+
+        ZIP is created locally first, then copied to the
+        staging Volume.
+        """
+
+        folder_path = folder_path.rstrip("/")
+
+        folder_name = folder_path.split("/")[-1]
+
+        zip_filename = f"{folder_name}.zip"
+
+        staging_zip_path = f"{self.ZIP_PATH}/{zip_filename}"
+
+        # Create staging directory if it does not exist
+        dbutils.fs.mkdirs(self.ZIP_PATH)
+
+        # Create ZIP on local driver disk
+        with tempfile.NamedTemporaryFile(
+            suffix=".zip",
+            delete=False
+        ) as temp_file:
+
+            local_zip_path = temp_file.name
+
+        try:
+
+            with zipfile.ZipFile(
+                local_zip_path,
+                mode="w",
+                compression=zipfile.ZIP_DEFLATED
+            ) as zipf:
+
+                self._add_folder_to_zip(
+                    zipf,
+                    folder_path
+                )
+
+            # Validate ZIP before uploading
+            with zipfile.ZipFile(local_zip_path, "r") as zipf:
+
+                bad_file = zipf.testzip()
+
+                if bad_file is not None:
+                    raise Exception(
+                        f"Corrupted file inside ZIP: {bad_file}"
+                    )
+
+                if not zipf.namelist():
+                    raise Exception(
+                        f"ZIP is empty for folder: {folder_path}"
+                    )
+
+            # Copy local ZIP to Unity Catalog Volume
+            dbutils.fs.cp(
+                f"file:{local_zip_path}",
+                staging_zip_path,
+                True
+            )
+
+            print(f"Successfully zipped: {folder_path}")
+            print(f"Staging ZIP: {staging_zip_path}")
+
+            return staging_zip_path
+
+        finally:
+
+            if os.path.exists(local_zip_path):
+                os.remove(local_zip_path)
+
+    def _add_folder_to_zip(self, zipf, folder_path):
+        """
+        Recursively reads files using dbutils.fs.ls
+        and adds them to the ZIP.
+        """
+
+        for item in dbutils.fs.ls(folder_path):
+
+            if item.isDir():
+
+                self._add_folder_to_zip(
+                    zipf,
+                    item.path.rstrip("/")
+                )
+
+            else:
+
+                # Read file from Volume using Spark's filesystem
+                local_file = tempfile.NamedTemporaryFile(
+                    delete=False
+                )
+
+                local_file_path = local_file.name
+                local_file.close()
+
+                try:
+
+                    dbutils.fs.cp(
+                        item.path,
+                        f"file:{local_file_path}"
+                    )
+
+                    # Preserve folder structure inside ZIP
+                    relative_path = item.path.replace(
+                        folder_path + "/",
+                        "",
+                        1
+                    )
+
+                    zipf.write(
+                        local_file_path,
+                        arcname=relative_path
+                    )
+
+                finally:
+
+                    if os.path.exists(local_file_path):
+                        os.remove(local_file_path)
