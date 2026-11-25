@@ -1,0 +1,98 @@
+Currently I am suppose to extract the folders from my volume path and upload it to a staging location 
+
+    SOURCE_PATH = (
+        "/Volumes/data2_raw_dev/data2_files/data2_volume/download/HDFC/DocumentTransfer"
+    )
+
+staging location - 
+
+    ZIP_PATH = (
+        "/Volumes/data2_raw_dev/data2_files/data2_volume/download/HDFC/DocumentTransfer/zipped"
+    )
+
+so inside the documenttransfer we'll have structure like - "/Volumes/data2_raw_dev/data2_files/data2_volume/download/HDFC/DocumentTransfer/{year}/{month}/...folder that needs to be zipped"
+
+I want to get all the files for a particular year and month from teh source path and zip all the folders and put it in the zip_path 
+
+currently I am using this code to get all the source folder paths 
+
+class HdfcIngestion:
+
+    MAX_BATCH_SIZE_GB = 2
+
+    SOURCE_PATH = (
+        "/Volumes/data2_raw_dev/data2_files/data2_volume/download/HDFC/DocumentTransfer"
+    )
+
+    ZIP_PATH = (
+        "/Volumes/data2_raw_dev/data2_files/data2_volume/download/HDFC/DocumentTransfer/zipped"
+    )
+
+    # ZIP_PATH = ("/Workspace/Users/ooaej24@tataaia.com/rough work/sftp - hdfc/")
+
+    TARGET_PATH = (
+        "/Volumes/data2_raw_dev/data2_files/data2_volume/download/HDFC/HDFCServer"
+    )
+
+    def get_source_folders(self, year=None, month=None):
+        """
+        Returns all folders for a given year/month.
+        If year or month is not provided, uses the current year/month.
+        """
+        today = datetime.now()
+        year = year or today.year
+        month = month or today.month
+        source_path = f"{self.SOURCE_PATH}/{year}/{month}"
+        return [
+            item.path
+            for item in dbutils.fs.ls(source_path)
+            if item.isDir()
+        ]
+
+hdfc = HdfcIngestion()
+folders = hdfc.get_source_folders(year=2025, month=10)
+
+but I am facing problem in converting it to a valid zip file 
+
+this is the code I am using to convert it to a zip folder - 
+
+    def zip_folder(self, folder_path: str):
+
+        # folder_path = folder_path.replace("dbfs:", "")
+        folder_path = folder_path.replace("dbfs:/", "/dbfs/")
+
+        folder_name = os.path.basename(
+            folder_path.rstrip("/")
+        )
+
+        zip_path = f"{self.ZIP_PATH}/{folder_name}.zip"
+
+        with zipfile.ZipFile(
+            zip_path,
+            "w",
+            compression=zipfile.ZIP_DEFLATED
+        ) as zipf:
+
+            for root, dirs, files in os.walk(folder_path):
+
+                for file in files:
+
+                    full_path = os.path.join(root, file)
+
+                    arcname = os.path.relpath(
+                        full_path,
+                        folder_path
+                    )
+
+                    zipf.write(
+                        full_path,
+                        arcname=arcname
+                    )
+
+        return zip_path
+
+but the problem I am facing is that, after zipping when I ran a code to cheak the contents of the folder it gave me [] a empty list and accoeding to AI even though I zipped the folder it was empty and there was no content in it 
+
+can you help me write the right code 
+
+my data bricks runtime version is 16.4
